@@ -1,12 +1,18 @@
 import { PaperAnalysis, PaperAnalysisSchema } from "@/lib/schemas/analysis";
 import { ANALYSIS_PROMPT } from "@/lib/ai/prompts";
+import { smartExtract } from "@/lib/pdf/extract";
 import { randomUUID } from "crypto";
+
+// Gemini 1.5 Flash: 1M token context (~4M chars). Cap conservatively.
+const GEMINI_MAX_CHARS = 700_000;
+// Llama-3.3-70b on Groq free tier: hard request size limit in practice.
+const GROQ_MAX_CHARS = 40_000;
 
 async function analyzeWithGemini(text: string, errorHint?: string): Promise<unknown> {
   const prompt = errorHint
     ? ANALYSIS_PROMPT(text) + `\n\nPrevious attempt failed validation: ${errorHint}. Fix these issues.`
     : ANALYSIS_PROMPT(text);
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`;
   const response = await fetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -23,13 +29,10 @@ async function analyzeWithGemini(text: string, errorHint?: string): Promise<unkn
   return JSON.parse(data.candidates[0].content.parts[0].text);
 }
 
-const GROQ_MAX_CHARS = 15_000;
-
 async function analyzeWithGroq(text: string, errorHint?: string): Promise<unknown> {
-  const truncated = text.length > GROQ_MAX_CHARS ? text.slice(0, GROQ_MAX_CHARS) + "\n\n[Text truncated for length]" : text;
   const prompt = errorHint
-    ? ANALYSIS_PROMPT(truncated) + `\n\nPrevious attempt failed validation: ${errorHint}. Fix these issues.`
-    : ANALYSIS_PROMPT(truncated);
+    ? ANALYSIS_PROMPT(text) + `\n\nPrevious attempt failed validation: ${errorHint}. Fix these issues.`
+    : ANALYSIS_PROMPT(text);
   const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -48,8 +51,11 @@ async function analyzeWithGroq(text: string, errorHint?: string): Promise<unknow
   return JSON.parse(raw);
 }
 
-export async function analyzePaper(text: string): Promise<PaperAnalysis> {
+export async function analyzePaper(rawText: string): Promise<PaperAnalysis> {
   const provider = process.env.AI_PROVIDER ?? "gemini";
+  const limit = provider === "groq" ? GROQ_MAX_CHARS : GEMINI_MAX_CHARS;
+  const text = smartExtract(rawText, limit);
+
   let raw: unknown;
 
   try {
@@ -57,7 +63,8 @@ export async function analyzePaper(text: string): Promise<PaperAnalysis> {
   } catch (err) {
     if (provider !== "groq") {
       console.error("[analyzePaper] Gemini failed, falling back to Groq:", err);
-      raw = await analyzeWithGroq(text);
+      const groqText = smartExtract(rawText, GROQ_MAX_CHARS);
+      raw = await analyzeWithGroq(groqText);
     } else {
       throw err;
     }
