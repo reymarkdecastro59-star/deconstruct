@@ -5,6 +5,9 @@ import { useParams, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import type { PaperAnalysis } from "@/lib/schemas/analysis";
 import { analysisToMarkdown } from "@/lib/utils/markdown";
+import dynamic from "next/dynamic";
+
+const ConceptMap = dynamic(() => import("@/components/ConceptMap"), { ssr: false });
 
 function UserAvatar() {
   const { data: session } = useSession();
@@ -19,9 +22,9 @@ function UserAvatar() {
       ) : (
         <span style={{
           width: 28, height: 28, borderRadius: "50%",
-          background: "var(--ink-2)", border: "1px solid var(--rule)",
+          background: "var(--ink)", border: "1px solid rgba(14,27,48,0.15)",
           display: "inline-flex", alignItems: "center", justifyContent: "center",
-          color: "var(--paper)", fontSize: 11,
+          color: "var(--paper)", fontSize: 11, fontFamily: "var(--f-sans)",
         }}>
           {session?.user?.name?.[0] ?? "?"}
         </span>
@@ -46,13 +49,30 @@ export default function AnalyzePage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem(`analysis_${id}`);
+    const raw = localStorage.getItem(`analysis_${id}`);
     if (raw) {
       setAnalysis(JSON.parse(raw));
     } else {
       setNotFound(true);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (!analysis) return;
+    const cards = document.querySelectorAll<HTMLElement>(".result-card, .sidebar-card");
+    const obs = new IntersectionObserver((entries) => {
+      const visible = entries.filter(e => e.isIntersecting);
+      visible.forEach((entry, i) => {
+        const el = entry.target as HTMLElement;
+        setTimeout(() => {
+          el.classList.add("visible");
+          obs.unobserve(el);
+        }, i * 75);
+      });
+    }, { threshold: 0.06 });
+    cards.forEach(card => obs.observe(card));
+    return () => obs.disconnect();
+  }, [analysis]);
 
   function handleExport() {
     if (!analysis) return;
@@ -95,7 +115,7 @@ export default function AnalyzePage() {
       {/* Nav */}
       <nav className="results-nav">
         <a href="/upload" className="dc-logo" style={{ fontSize: 20 }}>
-          DeConstruct<span className="cursor" />
+          DeConstruct_
         </a>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <span style={{ fontFamily: "var(--f-mono)", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.14em", opacity: 0.45 }}>
@@ -244,14 +264,11 @@ export default function AnalyzePage() {
             </div>
           </div>
 
-          {/* Concept map placeholder */}
+          {/* Concept map — scroll link */}
           <div className="sidebar-card">
             <span className="card-label">Concept map · {analysis.concepts.length} nodes</span>
-            <div className="cmap-placeholder">
-              Interactive map — Day 3
-            </div>
-            <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 9 }}>
-              {analysis.concepts.slice(0, 6).map(c => (
+            <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+              {analysis.concepts.slice(0, 5).map(c => (
                 <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
                   <span style={{
                     width: 7, height: 7, borderRadius: "50%", flexShrink: 0,
@@ -260,15 +277,22 @@ export default function AnalyzePage() {
                   <span style={{ fontFamily: "var(--f-mono)", fontSize: 9, textTransform: "uppercase", letterSpacing: "0.1em", opacity: 0.45, width: 44, flexShrink: 0 }}>
                     {c.type}
                   </span>
-                  <span style={{ lineHeight: 1.3, opacity: 0.8 }}>{c.id.replace(/-/g, " ")}</span>
+                  <span style={{ lineHeight: 1.3, opacity: 0.8, fontSize: 11 }}>{c.id.replace(/-/g, " ")}</span>
                 </div>
               ))}
-              {analysis.concepts.length > 6 && (
-                <div style={{ fontFamily: "var(--f-mono)", fontSize: 9, opacity: 0.35, textTransform: "uppercase", letterSpacing: "0.12em", marginTop: 2 }}>
-                  +{analysis.concepts.length - 6} more
+              {analysis.concepts.length > 5 && (
+                <div style={{ fontFamily: "var(--f-mono)", fontSize: 9, opacity: 0.35, textTransform: "uppercase", letterSpacing: "0.12em" }}>
+                  +{analysis.concepts.length - 5} more
                 </div>
               )}
             </div>
+            <a
+              href="#concept-map"
+              className="cta-pill"
+              style={{ marginTop: 14, width: "100%", justifyContent: "center", padding: "9px 14px", fontSize: 10 }}
+            >
+              View full map <span className="arrow">↓</span>
+            </a>
           </div>
 
           {/* Export */}
@@ -276,6 +300,27 @@ export default function AnalyzePage() {
             Export to Markdown <span className="arrow">↓</span>
           </button>
         </aside>
+      </div>
+
+      {/* Concept Map — full width */}
+      <div id="concept-map" style={{ padding: "0 32px 80px" }}>
+        <div className="result-card" style={{ overflow: "hidden" }}>
+          <div className="result-card-head">
+            <span className="card-label">FT-08</span>
+            <span className="card-title">Concept map</span>
+            <span style={{
+              marginLeft: "auto",
+              fontFamily: "var(--f-mono)", fontSize: 9,
+              textTransform: "uppercase", letterSpacing: "0.12em",
+              opacity: 0.4,
+            }}>
+              {analysis.concepts.length} nodes · {analysis.relationships.length} edges · click a node to explore
+            </span>
+          </div>
+          <div style={{ height: 520 }}>
+            <ConceptMap concepts={analysis.concepts} relationships={analysis.relationships} />
+          </div>
+        </div>
       </div>
     </div>
   );

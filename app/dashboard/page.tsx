@@ -48,9 +48,13 @@ export default function PapersPage() {
     setPapers(items);
   }, []);
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
-  const firstName = session?.user?.name?.split(" ")[0] ?? "there";
+  const [greeting, setGreeting] = useState("Welcome");
+  const [firstName, setFirstName] = useState("there");
+  useEffect(() => {
+    const hour = new Date().getHours();
+    setGreeting(hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening");
+    setFirstName(session?.user?.name?.split(" ")[0] ?? "there");
+  }, [session]);
 
   return (
     <>

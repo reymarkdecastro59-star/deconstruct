@@ -1,6 +1,14 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
+
+function useIsSignedIn() {
+  const { status } = useSession();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted && status === "authenticated";
+}
 
 /* =========================================================
    DATA
@@ -72,6 +80,9 @@ function Book3D() {
    ========================================================= */
 function UserAvatar() {
   const { data: session } = useSession();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
   return (
     <button
       onClick={() => signOut({ callbackUrl: "/" })}
@@ -103,25 +114,10 @@ function UserAvatar() {
 }
 
 function Nav() {
-  const { status } = useSession();
-  const isSignedIn = status === "authenticated";
+  const isSignedIn = useIsSignedIn();
   return (
     <nav className="dc-nav">
-      <a href="/" className="dc-logo">DeConstruct<span className="cursor" /></a>
-      <div className="nav-tag">
-        <p>An AI reading assistant for</p>
-        <p className="indent">academic literature.</p>
-      </div>
-      <div className="nav-tag">
-        <span className="nav-email">hello@deconstruct.ai</span>
-        <p style={{ marginTop: 8, opacity: 0.6, fontSize: 12, margin: "8px 0 0" }}>v1.0 · EST 2026©</p>
-      </div>
-      <div className="nav-lang">
-        <span className="active">EN</span>
-        <span className="sep">/</span>
-        <span style={{ opacity: 0.5 }}>IT</span>
-      </div>
-
+      <a href="/" className="dc-logo">DeConstruct_</a>
       {isSignedIn ? (
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <a href="/upload" className="menu-btn">
@@ -144,37 +140,33 @@ function Nav() {
    HERO
    ========================================================= */
 function Hero() {
-  const { status } = useSession();
-  const isSignedIn = status === "authenticated";
+  const isSignedIn = useIsSignedIn();
   return (
     <section className="hero">
       <div className="hero-headline">
-        <h1 className="hero-title">
-          <span className="line">Read less.</span>
-          <span className="line ital indent">Understand</span>
-          <span className="line">more.</span>
-        </h1>
+        <div style={{ gridColumn: "1 / span 7", display: "flex", flexDirection: "column", gap: 20, alignItems: "flex-start" }}>
+          <h1 className="hero-title" style={{ margin: 0 }}>
+            <span className="line">Read less.</span>
+            <span className="line ital indent">Understand</span>
+            <span className="line">more.</span>
+          </h1>
+          <div className="hero-body" style={{ display: "flex", flexDirection: "column", gap: 20, alignItems: "flex-start" }}>
+            <p style={{ fontFamily: "var(--f-sans)", fontSize: 16, lineHeight: 1.75, opacity: 0.65, maxWidth: "44ch", margin: 0 }}>
+              Upload an academic PDF. Get a structured analysis — abstract, methodology, concepts, relationships — in under thirty seconds.
+            </p>
+            {isSignedIn ? (
+              <a className="cta-pill solid" href="/upload">
+                Analyze a paper <span className="arrow">→</span>
+              </a>
+            ) : (
+              <a className="cta-pill solid" href="/sign-in">
+                Get started <span className="arrow">→</span>
+              </a>
+            )}
+          </div>
+        </div>
         <div className="hero-book-stage" aria-hidden="true">
           <Book3D />
-        </div>
-      </div>
-
-      <div className="hero-foot">
-        <div className="col" style={{ gridColumn: "1 / span 4" }}>
-          <span className="label">Synopsis</span>
-          <p>Upload an academic PDF. Get a structured analysis — abstract, methodology, concepts, relationships — in under thirty seconds.</p>
-        </div>
-        <div className="col" style={{ gridColumn: "9 / span 4", display: "flex", flexDirection: "column", gap: 14, alignItems: "flex-start" }}>
-          <span className="label">Begin</span>
-          {isSignedIn ? (
-            <a className="cta-pill solid" href="/upload">
-              Analyze a paper <span className="arrow">→</span>
-            </a>
-          ) : (
-            <a className="cta-pill solid" href="/sign-in">
-              Get started <span className="arrow">→</span>
-            </a>
-          )}
         </div>
       </div>
     </section>
@@ -184,22 +176,69 @@ function Hero() {
 /* =========================================================
    MARQUEE
    ========================================================= */
+const MARQUEE_ITEMS = ["Plain-language abstract", "Methodology", "Concept map", "Section summaries", "Keyword extraction", "Markdown export"];
+
 function Marquee() {
-  const items = ["Plain-language abstract", "Methodology", "Concept map", "Section summaries", "Keyword extraction", "Markdown export"];
-  const Row = () => (
-    <span>
-      {items.map((t, i) => (
-        <span key={i}>
-          {t}<span className="dot" style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--ink)", margin: "0 28px", verticalAlign: "middle" }} />
-        </span>
-      ))}
-    </span>
-  );
   return (
     <div className="marquee" aria-hidden="true">
       <div className="marquee-track">
-        <Row /><Row /><Row />
+        {[0, 1, 2].map(ri => (
+          <span key={ri}>
+            {MARQUEE_ITEMS.map((t, i) => (
+              <span key={i}>
+                {t}
+                <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--ink)", margin: "0 28px", verticalAlign: "middle" }} />
+              </span>
+            ))}
+          </span>
+        ))}
       </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   REVEAL — whole-section fade+rise (CTA, Footer)
+   ========================================================= */
+function Reveal({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setOn(true); obs.disconnect(); } },
+      { threshold: 0.06 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={`reveal${on ? " revealed" : ""}${className ? ` ${className}` : ""}`}>
+      {children}
+    </div>
+  );
+}
+
+/* =========================================================
+   STAGGER — per-child stagger on scroll entry
+   ========================================================= */
+function Stagger({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) { setOn(true); obs.disconnect(); } },
+      { threshold: 0.04 }
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+  return (
+    <div ref={ref} className={`stagger-section${on ? " in" : ""}${className ? ` ${className}` : ""}`}>
+      {children}
     </div>
   );
 }
@@ -211,11 +250,7 @@ function HowItWorks() {
   return (
     <section>
       <div className="section-head">
-        <div className="num">(II) Method</div>
         <h2 className="title">From PDF to <span className="ital">structured</span> insight.</h2>
-        <div className="right">
-          Four steps. Server-side extraction, schema-validated AI, client-side visualization. No accounts, no storage, no telemetry.
-        </div>
       </div>
       <div className="steps">
         {STEPS.map(s => (
@@ -241,11 +276,7 @@ function FeaturesGrid() {
   return (
     <section>
       <div className="section-head">
-        <div className="num">(IV) Output</div>
         <h2 className="title">What you <span className="ital">actually</span> receive.</h2>
-        <div className="right">
-          Every analysis returns the same schema. Predictable. Exportable. Validated by Zod before it ever reaches your screen.
-        </div>
       </div>
       <div className="features">
         <div className="feature">
@@ -280,8 +311,7 @@ function FeaturesGrid() {
    CTA
    ========================================================= */
 function CTA() {
-  const { status } = useSession();
-  const isSignedIn = status === "authenticated";
+  const isSignedIn = useIsSignedIn();
   return (
     <section className="cta-section">
       <h2>Now <span className="ital">read</span><br />the next one.</h2>
@@ -319,13 +349,13 @@ function Footer() {
         <div>
           <h5>Resources</h5>
           <ul>
-            <li>Specification</li><li>Changelog</li><li>v2 roadmap</li><li>GitHub</li>
+            <li>Specification</li><li>Changelog</li><li>GitHub</li>
           </ul>
         </div>
         <div>
           <h5>Contact</h5>
           <ul>
-            <li>hello@deconstruct.ai</li><li>GitHub</li><li>LinkedIn</li>
+            <li>GitHub</li><li>LinkedIn</li>
           </ul>
         </div>
       </div>
@@ -338,30 +368,85 @@ function Footer() {
 }
 
 /* =========================================================
-   GRID OVERLAY
-   ========================================================= */
-function GridLines() {
-  return (
-    <div className="gridlines" aria-hidden="true">
-      {Array.from({ length: 12 }).map((_, i) => <span key={i} />)}
-    </div>
-  );
-}
-
-/* =========================================================
    PAGE
    ========================================================= */
 export default function Home() {
+  const howItRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    let animating = false;
+
+    function getSnapY() {
+      const el = howItRef.current;
+      if (!el) return 0;
+      // Target the section-head directly so the heading lands 88px from the top
+      // (24px below the 64px sticky nav — gives breathing room)
+      const head = el.querySelector<HTMLElement>(".section-head");
+      const rect = (head ?? el).getBoundingClientRect();
+      return rect.top + window.scrollY - 88;
+    }
+
+    function snapTo(dest: number) {
+      if (animating) return;
+      animating = true;
+      window.scrollTo({ top: dest, behavior: "smooth" });
+      setTimeout(() => { animating = false; }, 1000);
+    }
+
+    function onWheel(e: WheelEvent) {
+      const y = window.scrollY;
+      const snapY = getSnapY();
+
+      // Past the snap zone — free scroll, don't interfere
+      if (y > snapY + 40) return;
+
+      // Swallow wheel events during animation to prevent double-fire
+      if (animating) { e.preventDefault(); return; }
+
+      if (e.deltaY > 0 && y < snapY) {
+        // Scrolling down inside hero → snap forward to How It Works
+        e.preventDefault();
+        snapTo(snapY);
+      } else if (e.deltaY < 0 && y > 10) {
+        // Scrolling up anywhere in snap zone → snap back to hero
+        e.preventDefault();
+        snapTo(0);
+      }
+    }
+
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, []);
+
   return (
     <>
-      <GridLines />
       <Nav />
-      <Hero />
-      <Marquee />
-      <HowItWorks />
-      <FeaturesGrid />
-      <CTA />
-      <Footer />
+
+      {/* ── Screen 1: hero + marquee fills the viewport ── */}
+      <div className="hero-viewport">
+        <Hero />
+        <Marquee />
+      </div>
+
+      {/* ── Snap target: stagger fires as snap scrolls section into view ── */}
+      <div ref={howItRef} className="snap-target">
+        <Stagger>
+          <HowItWorks />
+        </Stagger>
+      </div>
+
+      {/* ── Free scroll with per-child stagger ── */}
+      <Stagger>
+        <FeaturesGrid />
+      </Stagger>
+
+      <Reveal>
+        <CTA />
+      </Reveal>
+
+      <Reveal>
+        <Footer />
+      </Reveal>
     </>
   );
 }

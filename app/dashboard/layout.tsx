@@ -71,14 +71,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             fontFamily: "var(--f-display)", fontSize: 22,
             color: "var(--paper)", letterSpacing: "-0.02em",
             lineHeight: 1, textDecoration: "none",
-            display: "flex", alignItems: "baseline", gap: 0,
           }}>
-            DeConstruct
-            <span style={{
-              display: "inline-block", width: "0.38em", height: "0.7em",
-              background: "var(--paper)", marginLeft: 2,
-              verticalAlign: "middle", transform: "translateY(-1px)",
-            }} />
+            DeConstruct_
           </Link>
           <div style={{
             fontFamily: "var(--f-mono)", fontSize: 9,
