@@ -100,8 +100,32 @@ export default function AnalyzePage() {
 
   if (!analysis) {
     return (
-      <div className="results-page" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh" }}>
-        <div style={{ fontFamily: "var(--f-display)", fontSize: 28, fontStyle: "italic", opacity: 0.4 }}>Loading&hellip;</div>
+      <div className="results-page">
+        <nav className="results-nav">
+          <span className="dc-logo" style={{ fontSize: 20 }}>DeConstruct_</span>
+        </nav>
+        <div className="results-hero">
+          <div className="skel" style={{ width: 130, height: 11, marginBottom: 22 }} />
+          <div className="skel" style={{ width: "62%", height: 52, marginBottom: 10 }} />
+          <div className="skel" style={{ width: "38%", height: 52, marginBottom: 30 }} />
+          <div style={{ display: "flex", gap: 8 }}>
+            {[88, 112, 96, 76, 104].map((w, i) => (
+              <div key={i} className="skel" style={{ width: w, height: 28, borderRadius: 999 }} />
+            ))}
+          </div>
+        </div>
+        <div className="results-body">
+          <main className="results-main">
+            {[220, 160, 200, 180, 280].map((h, i) => (
+              <div key={i} className="skel" style={{ height: h, borderRadius: 8 }} />
+            ))}
+          </main>
+          <aside className="results-sidebar">
+            {[110, 108, 180, 148, 44].map((h, i) => (
+              <div key={i} className="skel" style={{ height: h, borderRadius: 8 }} />
+            ))}
+          </aside>
+        </div>
       </div>
     );
   }
@@ -317,7 +341,7 @@ export default function AnalyzePage() {
               {analysis.concepts.length} nodes · {analysis.relationships.length} edges · click a node to explore
             </span>
           </div>
-          <div style={{ height: 520 }}>
+          <div className="cmap-container">
             <ConceptMap concepts={analysis.concepts} relationships={analysis.relationships} />
           </div>
         </div>

@@ -102,6 +102,7 @@ function RecentList({ items, onDelete }: { items: PaperAnalysis[]; onDelete: (id
           <button
             onClick={() => onDelete(a.id)}
             title="Remove"
+            aria-label={`Remove "${a.title}"`}
             style={{
               background: "none", border: "none", cursor: "pointer",
               padding: "2px 4px", opacity: 0.25, fontSize: 14, lineHeight: 1,
